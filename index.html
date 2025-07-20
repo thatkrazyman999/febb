@@ -3,49 +3,28 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Pixelated Line Shot Combo Game</title>
+<title>Pixelated Line Shot with Puzzle Explosion</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
-
   html, body {
-    margin: 0;
-    height: 100%;
-    overflow: hidden;
+    margin: 0; height: 100%; overflow: hidden;
     font-family: 'Press Start 2P', cursive, monospace;
-    background: #222;
-    color: #fff;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
+    background: #222; color: #fff;
+    display: flex; flex-direction: column; align-items: center;
   }
-
-  body {
-    position: relative;
-    z-index: 1;
-  }
-
-  h1, p {
-    z-index: 10;
-    position: relative;
+  h1, p, #score {
     user-select: none;
   }
-
   #score {
     font-size: 1.2rem;
     margin-top: 10px;
     font-family: 'Press Start 2P', monospace;
-    user-select: none;
-    position: relative;
-    z-index: 10;
   }
-
   #gameCanvas {
     background: rgba(17,17,17,0.85);
     margin-top: 20px;
     border: 2px solid #555;
-    z-index: 10;
-    position: relative;
-    image-rendering: pixelated; /* pixelate canvas */
+    image-rendering: pixelated;
   }
 </style>
 </head>
@@ -61,7 +40,7 @@
 <script>
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
-ctx.imageSmoothingEnabled = false; // pixelated scaling
+ctx.imageSmoothingEnabled = false;
 
 const scoreDisplay = document.getElementById('score');
 
@@ -69,21 +48,19 @@ const centerX = canvas.width / 2;
 const centerY = canvas.height / 2;
 const buttonRadius = 30;
 
-let t = 0;                  
-let dir = 1;                
-let baseSpeed = 0.02;       
+let t = 0;
+let dir = 1;
+let baseSpeed = 0.02;
 let speed = baseSpeed;
 let angle = Math.random() * 2 * Math.PI;
 
 let score = 0;
 let combo = 0;
-
 const colors = ['#FF4136', '#FF851B', '#FFDC00', '#2ECC40', '#0074D9', '#B10DC9'];
 
 const ballPixelSize = 8;
-const pixelScale = 4; // scales 8x8 to 32x32 on screen
+const pixelScale = 4;
 
-// Offscreen canvas for pixel ball
 const pixelBallCanvas = document.createElement('canvas');
 pixelBallCanvas.width = ballPixelSize;
 pixelBallCanvas.height = ballPixelSize;
@@ -93,39 +70,20 @@ pixelBallCtx.imageSmoothingEnabled = false;
 function drawPixelBallGraphic() {
   pixelBallCtx.clearRect(0, 0, ballPixelSize, ballPixelSize);
   pixelBallCtx.fillStyle = 'yellow';
-  // simple pixel ball shape (cross + center block)
   pixelBallCtx.fillRect(3, 1, 2, 6);
   pixelBallCtx.fillRect(1, 3, 6, 2);
   pixelBallCtx.fillRect(2, 2, 4, 4);
 }
 drawPixelBallGraphic();
 
-// Explosion frames pixel art (4 frames simple expanding square)
-const explosionFrames = [];
-for(let i=0; i<4; i++) {
-  const c = document.createElement('canvas');
-  c.width = ballPixelSize;
-  c.height = ballPixelSize;
-  const cx = c.getContext('2d');
-  cx.imageSmoothingEnabled = false;
-  cx.clearRect(0, 0, ballPixelSize, ballPixelSize);
-  cx.fillStyle = `hsl(${i*90}, 100%, 50%)`;
-  cx.fillRect(3 - i, 3 - i, 2 + i * 2, 2 + i * 2);
-  explosionFrames.push(c);
-}
-
-let explosionActive = false;
-let explosionFrameIndex = 0;
-
 function getBallPosition() {
-  const length = 200; // how far from center ball can go
+  const length = 200;
   const x = centerX + Math.cos(angle) * length * t;
   const y = centerY + Math.sin(angle) * length * t;
   return {x, y};
 }
 
 function updateScore() {
-  // Change color every 5 points:
   let colorIndex = Math.floor(score / 5) % colors.length;
   scoreDisplay.style.color = colors[colorIndex];
   scoreDisplay.textContent = `Score: ${score} | Combo: x${combo}`;
@@ -146,91 +104,165 @@ function drawButton() {
 
 function drawBall() {
   const pos = getBallPosition();
+  ctx.drawImage(
+    pixelBallCanvas,
+    pos.x - (ballPixelSize * pixelScale) / 2,
+    pos.y - (ballPixelSize * pixelScale) / 2,
+    ballPixelSize * pixelScale,
+    ballPixelSize * pixelScale
+  );
+}
 
-  if(explosionActive) {
-    ctx.drawImage(
-      explosionFrames[explosionFrameIndex],
-      pos.x - (ballPixelSize * pixelScale) / 2,
-      pos.y - (ballPixelSize * pixelScale) / 2,
-      ballPixelSize * pixelScale,
-      ballPixelSize * pixelScale
-    );
-  } else {
-    ctx.drawImage(
-      pixelBallCanvas,
-      pos.x - (ballPixelSize * pixelScale) / 2,
-      pos.y - (ballPixelSize * pixelScale) / 2,
-      ballPixelSize * pixelScale,
-      ballPixelSize * pixelScale
-    );
+// PUZZLE EXPLOSION LOGIC
+
+const blockSize = 20;
+const blocksX = Math.ceil(canvas.width / blockSize);
+const blocksY = Math.ceil(canvas.height / blockSize);
+
+let blocks = [];
+let explosionPhase = null; // null, 'explode', 'reform'
+let explosionFrame = 0;
+const explosionTotalFrames = 120;
+
+function createBlocksFromCanvas() {
+  const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  blocks = [];
+
+  for(let by=0; by<blocksY; by++) {
+    for(let bx=0; bx<blocksX; bx++) {
+      // Extract pixel data for each block
+      const blockData = ctx.createImageData(blockSize, blockSize);
+      for(let y=0; y<blockSize; y++) {
+        for(let x=0; x<blockSize; x++) {
+          const canvasX = bx*blockSize + x;
+          const canvasY = by*blockSize + y;
+          const canvasIndex = (canvasY*canvas.width + canvasX)*4;
+          const blockIndex = (y*blockSize + x)*4;
+
+          if(canvasX < canvas.width && canvasY < canvas.height) {
+            blockData.data[blockIndex] = imageData.data[canvasIndex];
+            blockData.data[blockIndex+1] = imageData.data[canvasIndex+1];
+            blockData.data[blockIndex+2] = imageData.data[canvasIndex+2];
+            blockData.data[blockIndex+3] = imageData.data[canvasIndex+3];
+          } else {
+            blockData.data[blockIndex+3] = 0; // transparent outside canvas
+          }
+        }
+      }
+
+      blocks.push({
+        x: bx * blockSize,
+        y: by * blockSize,
+        origX: bx * blockSize,
+        origY: by * blockSize,
+        vx: (Math.random() - 0.5) * 10,  // random velocity X
+        vy: (Math.random() - 0.5) * 10,  // random velocity Y
+        data: blockData,
+      });
+    }
   }
 }
 
-function triggerExplosion() {
-  explosionActive = true;
-  explosionFrameIndex = 0;
-}
-
-function updateExplosion() {
-  if (!explosionActive) return;
-  explosionFrameIndex++;
-  if (explosionFrameIndex >= explosionFrames.length) {
-    explosionActive = false;
-    randomizeAngle();
-    combo = 0;
-    speed = baseSpeed; // reset speed after explosion
+function drawBlocks() {
+  for(const block of blocks) {
+    ctx.putImageData(block.data, block.x, block.y);
   }
 }
+
+function updateBlocks() {
+  const progress = explosionFrame / explosionTotalFrames;
+
+  if(explosionPhase === 'explode') {
+    // Blocks move outward with velocity, slowing down
+    for(const block of blocks) {
+      block.x += block.vx;
+      block.y += block.vy;
+      // slow velocity to zero over time
+      block.vx *= 0.9;
+      block.vy *= 0.9;
+    }
+    explosionFrame++;
+    if(explosionFrame >= explosionTotalFrames / 2) {
+      explosionPhase = 'reform';
+      explosionFrame = 0;
+      // calculate velocity to return to orig positions smoothly
+      for(const block of blocks) {
+        block.vx = (block.origX - block.x) / (explosionTotalFrames / 2);
+        block.vy = (block.origY - block.y) / (explosionTotalFrames / 2);
+      }
+    }
+  } else if (explosionPhase === 'reform') {
+    // Blocks move back to original position
+    for(const block of blocks) {
+      block.x += block.vx;
+      block.y += block.vy;
+    }
+    explosionFrame++;
+    if(explosionFrame >= explosionTotalFrames / 2) {
+      explosionPhase = null;
+      explosionFrame = 0;
+      combo = 0;
+      speed = baseSpeed;
+      randomizeAngle();
+      updateScore();
+    }
+  }
+}
+
+// GAME LOOP WITH PUZZLE EXPLOSION
 
 document.addEventListener('keydown', (e) => {
-  if (e.code === 'Space') {
+  if(e.code === 'Space' && !explosionPhase) {
     const ball = getBallPosition();
     const dx = ball.x - centerX;
     const dy = ball.y - centerY;
-    const dist = Math.sqrt(dx * dx + dy * dy);
+    const dist = Math.sqrt(dx*dx + dy*dy);
 
-    if (dist <= buttonRadius) {
-      // HIT
+    if(dist <= buttonRadius) {
       score++;
       combo++;
-      speed += 0.002; // speed up with every hit
+      speed += 0.002;
+
       if(score % 5 === 0) {
-        // color changes handled in updateScore()
+        updateScore();
       }
+
       if(score >= 100) {
-        triggerExplosion();
+        // Trigger puzzle explosion animation
+        createBlocksFromCanvas();
+        explosionPhase = 'explode';
+        explosionFrame = 0;
       } else {
         randomizeAngle();
       }
     } else {
-      // MISS
       combo = 0;
-      speed = baseSpeed; // reset speed on miss
+      speed = baseSpeed;
+      updateScore();
     }
-    updateScore();
   }
 });
 
 function gameLoop() {
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  if(!explosionPhase) {
+    ctx.clearRect(0,0,canvas.width,canvas.height);
 
-  if (!explosionActive) {
-    // Update t position of ball on line
-    t += speed * dir;
-    if (t >= 1 || t <= -1) {
-      dir *= -1; // reverse direction
-    }
+    t += speed*dir;
+    if(t >= 1 || t <= -1) dir *= -1;
+
+    drawButton();
+    drawBall();
   } else {
-    updateExplosion();
+    // during explosion/reform, draw blocks instead of normal objects
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    updateBlocks();
+    drawBlocks();
   }
-
-  drawButton();
-  drawBall();
 
   requestAnimationFrame(gameLoop);
 }
 
-// Start game
+// start
 updateScore();
 gameLoop();
 
